@@ -17,8 +17,9 @@ from uagents_core.contrib.protocols.chat import (
 agent1 = Agent(name="agent1",port=8000,seed="123123helloagent1231212",
  mailbox=True)
 
-agent2_address = "agent1q0h70caed8ax769shpemapzkyk65uscw4xwk6dc4t3emvp5jdcvqs9xs32y"
-
+agent2_address = "agent1qthmuhfu5xlu4s8uwlq7z2ghxhpdqpj2r8smaushxu0qr3k3zcwuxu87t0t"
+#some working examplr agent1q0h70caed8ax769shpemapzkyk65uscw4xwk6dc4t3emvp5jdcvqs9xs32y
+#agent1qthmuhfu5xlu4s8uwlq7z2ghxhpdqpj2r8smaushxu0qr3k3zcwuxu87t0t coingecko
 # Initialize the chat protocol
 chat_proto = Protocol(spec=chat_protocol_spec)
 
@@ -33,7 +34,7 @@ async def startup_handler(ctx: Context):
     initial_message = ChatMessage(
         timestamp=datetime.utcnow(),
         msg_id=uuid4(),
-        content=[TextContent(type="text", text="What is the capital of France?")]
+        content=[TextContent(type="text", text="base")]
     )
     await asyncio.sleep(25)
     await ctx.send(agent2_address, initial_message)
