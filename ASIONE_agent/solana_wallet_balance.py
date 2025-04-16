@@ -103,10 +103,7 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
             ctx.storage.set(str(ctx.session), sender)
             await ctx.send(
                 AI_AGENT_ADDRESS,
-                StructuredOutputPrompt(
-                    prompt=item.text, output_schema=SolanaRequest.schema()
-                ),
-            )
+                StructuredOutputPrompt(prompt=item.text, output_schema=SolanaRequest.schema()),)
         else:
             ctx.logger.info(f"Got unexpected content from {sender}")
 
@@ -144,8 +141,7 @@ async def handle_structured_output_response(
         address = wallet_request.address
         
         if not address:
-            await ctx.send(
-                session_sender,
+            await ctx.send(session_sender,
                 create_text_chat(
                     "Sorry, I couldn't find a valid Solana wallet address in your query."
                 ),
