@@ -140,7 +140,7 @@ async def handle_request(ctx: Context, sender: str, msg: ContextPrompt):
 async def handle_structured_request(ctx: Context, sender: str, msg: StructuredOutputPrompt):
     ctx.logger.info(f"Received message: {msg.prompt}")
     
-    prompt = f''' prompt : {msg.prompt}.response_schema : {msg.output_schema}; output: dict[str, Any]. if response_schema is not None: response_format = "type": "json_schema","json_schema":  "name": response_schema["title"], "strict": False, "schema": response_schema. ;     Follow the response schema to format the prompt and provide strict output to match the schema.'''
+    prompt = f''' prompt : {msg.prompt}.response_schema : {msg.output_schema}; output: dict[str, Any]. if response_schema is not None: response_format = "type": "json_schema","json_schema":  "name": response_schema["title"], "strict": False, "schema": response_schema. ;     Follow the response schema to format the prompt and provide strict output to match the schema. Do not include "json" heading in the output. only brackets and json formated text.'''
     
     # Interpret the AI response and print SELL or HOLD decision
     #if "SELL" in response:
@@ -149,7 +149,7 @@ async def handle_structured_request(ctx: Context, sender: str, msg: StructuredOu
     #    print("HOLD")
     
     response = query_llm(prompt)
-    
+    ctx.logger.info(f"Received response: {response}")
     #response = get_completion(context="", prompt=msg.prompt, response_schema=msg.output_schema)
     await ctx.send(sender, StructuredOutputResponse(output=json.loads(response)))
  
@@ -161,15 +161,17 @@ agent.include(chat_proto, publish_manifest=True)
  
  
  
-"""
+
 ### Health check related code
 def agent_is_healthy() -> bool:
-    \"\"\"Implement the actual health check logic here.
- 
-    For example, check if the agent can connect to a third party API,
-    check if the agent has enough resources, etc.
-    \"\"\"\n    condition = True  # TODO: logic here
-    return bool(condition)
+    try:
+        import asyncio
+        #await asyncio.sleep(10)  # Wait 10 seconds
+        pass
+        #asyncio.run(get_balance_from_address("AtTjQKXo1CYTa2MuxPARtr382ZyhPU5YX4wMMpvaa1oy"))
+        return True
+    except Exception:
+        return False
  
 
 class HealthCheck(Model):
@@ -200,7 +202,7 @@ async def handle_health_check(ctx: Context, sender: str, msg: HealthCheck):
  
 agent.include(health_protocol, publish_manifest=True)
  
- """
+ 
  
 """
 def get_completion(
@@ -267,5 +269,3 @@ def query_llm(query):
  
 if __name__ == "__main__":
     agent.run()
-
-#test-agent://agent1q2gmk0r2vwk6lcr0pvxp8glvtrdzdej890cuxgegrrg86ue9cahk5nfaf3c
