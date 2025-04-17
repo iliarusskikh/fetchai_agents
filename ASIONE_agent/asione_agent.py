@@ -75,14 +75,14 @@ proto = QuotaProtocol(
     storage_reference=agent.storage,
     name="LLM-Context-Response",
     version="0.1.0",
-    default_rate_limit=RateLimit(window_size_minutes=60, max_requests=6),
+    default_rate_limit=RateLimit(window_size_minutes=60, max_requests=120),
 )
  
 struct_proto = QuotaProtocol(
     storage_reference=agent.storage,
     name="LLM-Structured-Response",
     version="0.1.0",
-    default_rate_limit=RateLimit(window_size_minutes=60, max_requests=6),
+    default_rate_limit=RateLimit(window_size_minutes=60, max_requests=120),
 )
 
 
@@ -140,7 +140,7 @@ async def handle_request(ctx: Context, sender: str, msg: ContextPrompt):
 async def handle_structured_request(ctx: Context, sender: str, msg: StructuredOutputPrompt):
     ctx.logger.info(f"Received message: {msg.prompt}")
     
-    prompt = f''' prompt : {msg.prompt}.response_schema : {msg.output_schema}; output: dict[str, Any]. if response_schema is not None: response_format = "type": "json_schema","json_schema":  "name": response_schema["title"], "strict": False, "schema": response_schema. ;     Follow the response schema to format the prompt and provide strict output to match the schema. Do not include "json" heading in the output. only brackets and json formated text.'''
+    prompt = f''' prompt : {msg.prompt}.response_schema : {msg.output_schema}; output: dict[str, Any]. if response_schema is not None: response_format = "type": "json_schema","json_schema":  "name": response_schema["title"], "strict": False, "schema": response_schema. ;     Follow the response schema to format the prompt and provide strict output to match the schema. The output from ASI1 agent should start with bracket and end with bracket. Do not include "json" heading in the output, only brackets and json-formated text! Nothing outside brackets'''
     
     # Interpret the AI response and print SELL or HOLD decision
     #if "SELL" in response:
@@ -150,6 +150,10 @@ async def handle_structured_request(ctx: Context, sender: str, msg: StructuredOu
     
     response = query_llm(prompt)
     ctx.logger.info(f"Received response: {response}")
+
+    prompt = f'''You should check that this response output starts with left curly brace, contains json structure format and ends with right curly brace. There are no characters outside brackets, only json formatted text within curly braces. Here is the response:{response}. Once checked you should either output response or modified response. nothing else. You must remove the word "json" if you find it in the response.'''
+    response = query_llm(prompt)
+    ctx.logger.info(f"Formatted response: {response}")
     #response = get_completion(context="", prompt=msg.prompt, response_schema=msg.output_schema)
     await ctx.send(sender, StructuredOutputResponse(output=json.loads(response)))
  

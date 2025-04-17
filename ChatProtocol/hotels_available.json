@@ -1,0 +1,14 @@
+[
+    {
+        "hotel_name": "Dotchester hotel",
+        "available_rooms": 12
+    },
+    {
+        "hotel_name": "Dodo hotel",
+        "available_rooms": 4
+    },
+    {
+        "hotel_name": "HolidayInn",
+        "available_rooms": 44
+    }
+]
