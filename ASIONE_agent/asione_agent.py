@@ -110,7 +110,16 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
             response = query_llm(prompt)
             print(response, "response")
             print(sender, "sender")
-            await ctx.send(sender, Response(text=f"{response}"))
+
+            # Send response
+            resp = ChatMessage(
+                timestamp=datetime.utcnow(),
+                msg_id=uuid4(),
+                content=[TextContent(type="text", text=response)]
+            )
+            await ctx.send(sender, resp)
+
+            #await ctx.send(sender, Response(text=f"{response}"))
             
             #await ctx.send(AI_AGENT_ADDRESS,StructuredOutputResponse(prompt=item.text, output_schema=SolanaRequest.schema()),)
         else:
