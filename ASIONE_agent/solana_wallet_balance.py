@@ -243,7 +243,7 @@ proto = QuotaProtocol(
     storage_reference=agent.storage,
     name="Solana-Wallet-Protocol",
     version="0.1.0",
-    default_rate_limit=RateLimit(window_size_minutes=60, max_requests=30),
+    default_rate_limit=RateLimit(window_size_minutes=60, max_requests=120),
 )
 #receive response from Solana RPC request as Solana Response
 @proto.on_message(SolanaRequest, replies={SolanaResponse, ErrorMessage})
