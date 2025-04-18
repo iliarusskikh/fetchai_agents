@@ -15,6 +15,7 @@ from uagents_core.models import ErrorMessage
 agent = Agent()
 
 
+
 # Import the necessary components of the chat protocol
 from uagents_core.contrib.protocols.chat import (
     ChatAcknowledgement,
@@ -31,7 +32,6 @@ logger = logging.getLogger(__name__)
 
 # Solana RPC endpoint
 SOLANA_RPC_URL = "https://api.mainnet-beta.solana.com"
-
 
 class SolanaRequest(Model):
     address: str = Field(
@@ -60,114 +60,6 @@ async def startup_handler(ctx: Context):
     
     
     
-
-# AI Agent Address for structured output processing
-AI_AGENT_ADDRESS = 'agent1q0h70caed8ax769shpemapzkyk65uscw4xwk6dc4t3emvp5jdcvqs9xs32y'
-
-if not AI_AGENT_ADDRESS:
-    raise ValueError("AI_AGENT_ADDRESS not set")
-
-
-def create_text_chat(text: str, end_session: bool = True) -> ChatMessage:
-    content = [TextContent(type="text", text=text)]
-    if end_session:
-        content.append(EndSessionContent(type="end-session"))
-    return ChatMessage(
-        timestamp=datetime.utcnow(),
-        msg_id=uuid4(),
-        content=content,
-    )
-
-chat_proto = Protocol(spec=chat_protocol_spec)
-struct_output_client_proto = Protocol(
-    name="StructuredOutputClientProtocol", version="0.1.0"
-)
-
-
-#receives enquiry about the wallet from user
-@chat_proto.on_message(ChatMessage)
-async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
-    ctx.logger.info(f"Got a message from {sender}: {msg}")
-    ctx.storage.set(str(ctx.session), sender)
-    await ctx.send(
-        sender,
-        ChatAcknowledgement(timestamp=datetime.utcnow(), acknowledged_msg_id=msg.msg_id),
-    )
-
-    for item in msg.content:
-        if isinstance(item, StartSessionContent):
-            ctx.logger.info(f"Got a start session message from {sender}")
-            continue
-        elif isinstance(item, TextContent):
-            ctx.logger.info(f"Got a message from {sender}: {item.text}")
-            ctx.storage.set(str(ctx.session), sender)
-            await ctx.send(
-                AI_AGENT_ADDRESS,
-                StructuredOutputPrompt(prompt=item.text, output_schema=SolanaRequest.schema()),)
-        else:
-            ctx.logger.info(f"Got unexpected content from {sender}")
-
-
-@chat_proto.on_message(ChatAcknowledgement)
-async def handle_ack(ctx: Context, sender: str, msg: ChatAcknowledgement):
-    ctx.logger.info(
-        f"Got an acknowledgement from {sender} for {msg.acknowledged_msg_id}"
-    )
-
-#receives output from the OpenAI agent, prepare to send to Solana Request
-@struct_output_client_proto.on_message(StructuredOutputResponse)
-async def handle_structured_output_response(
-    ctx: Context, sender: str, msg: StructuredOutputResponse
-):
-    session_sender = ctx.storage.get(str(ctx.session))
-    if session_sender is None:
-        ctx.logger.error(
-            "Discarding message because no session sender found in storage"
-        )
-        return
-
-    if "<UNKNOWN>" in str(msg.output):
-        await ctx.send(
-            session_sender,
-            create_text_chat(
-                "Sorry, I couldn't process your request. Please include a valid Solana wallet address."
-            ),
-        )
-        return
-
-    try:
-        # Parse the structured output to get the address
-        wallet_request = SolanaRequest.parse_obj(msg.output)
-        address = wallet_request.address
-        
-        if not address:
-            await ctx.send(session_sender,
-                create_text_chat(
-                    "Sorry, I couldn't find a valid Solana wallet address in your query."
-                ),
-            )
-            return
-        
-        # Get the balance for this address
-        balance = await get_balance_from_address(address)
-        
-        # Create a nicely formatted response
-        response_text = f"Wallet Balance for `{address}`:\n{balance}\n\n[View on Solana Explorer](https://explorer.solana.com/address/{address})"
-        
-        # Send the response back to the user
-        await ctx.send(session_sender, create_text_chat(response_text))
-        
-    except Exception as err:
-        ctx.logger.error(err)
-        await ctx.send(
-            session_sender,
-            create_text_chat(
-                "Sorry, I couldn't check the wallet balance. Please try again later."
-            ),
-        )
-        return
-
-#send request to solana RPC
 async def get_balance_from_address(address: str) -> str:
     """
     Get the balance for a Solana address using the Solana RPC API
@@ -235,18 +127,130 @@ async def get_balance_from_address(address: str) -> str:
 
 
 
+# AI Agent Address for structured output processing
+AI_AGENT_ADDRESS = 'agent1q2gmk0r2vwk6lcr0pvxp8glvtrdzdej890cuxgegrrg86ue9cahk5nfaf3c'
+#ai agent agent1q0h70caed8ax769shpemapzkyk65uscw4xwk6dc4t3emvp5jdcvqs9xs32y
+#test-agent://agent1q2gmk0r2vwk6lcr0pvxp8glvtrdzdej890cuxgegrrg86ue9cahk5nfaf3c
+if not AI_AGENT_ADDRESS:
+    raise ValueError("AI_AGENT_ADDRESS not set")
+
+def create_text_chat(text: str, end_session: bool = True) -> ChatMessage:
+    content = [TextContent(type="text", text=text)]
+    if end_session:
+        content.append(EndSessionContent(type="end-session"))
+    return ChatMessage(
+        timestamp=datetime.utcnow(),
+        msg_id=uuid4(),
+        content=content,
+    )
+
+chat_proto = Protocol(spec=chat_protocol_spec)
+struct_output_client_proto = Protocol(
+    name="StructuredOutputClientProtocol", version="0.1.0"
+)
 
 
-#SOLANA RPC RESPONSE
+
+@chat_proto.on_message(ChatMessage)
+async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
+    ctx.logger.info(f"Got a message from {sender}: {msg}")
+    ctx.storage.set(str(ctx.session), sender)
+    await ctx.send(
+        sender,
+        ChatAcknowledgement(timestamp=datetime.utcnow(), acknowledged_msg_id=msg.msg_id),
+    )
+
+    for item in msg.content:
+        if isinstance(item, StartSessionContent):
+            ctx.logger.info(f"Got a start session message from {sender}")
+            continue
+        elif isinstance(item, TextContent):
+            ctx.logger.info(f"Got a message from {sender}: {item.text}")
+            ctx.storage.set(str(ctx.session), sender)
+            await ctx.send(
+                AI_AGENT_ADDRESS,
+                StructuredOutputPrompt(
+                    prompt=item.text, output_schema=SolanaRequest.schema()
+                ),
+            )
+        else:
+            ctx.logger.info(f"Got unexpected content from {sender}")
+
+@chat_proto.on_message(ChatAcknowledgement)
+async def handle_ack(ctx: Context, sender: str, msg: ChatAcknowledgement):
+    ctx.logger.info(
+        f"Got an acknowledgement from {sender} for {msg.acknowledged_msg_id}"
+    )
+
+
+@struct_output_client_proto.on_message(StructuredOutputResponse)
+async def handle_structured_output_response(
+    ctx: Context, sender: str, msg: StructuredOutputResponse
+):
+    session_sender = ctx.storage.get(str(ctx.session))
+    if session_sender is None:
+        ctx.logger.error(
+            "Discarding message because no session sender found in storage"
+        )
+        return
+
+    if "<UNKNOWN>" in str(msg.output):
+        await ctx.send(
+            session_sender,
+            create_text_chat(
+                "Sorry, I couldn't process your request. Please include a valid Solana wallet address."
+            ),
+        )
+        return
+
+    try:
+        # Parse the structured output to get the address
+        wallet_request = SolanaRequest.parse_obj(msg.output)
+        address = wallet_request.address
+        
+        if not address:
+            await ctx.send(
+                session_sender,
+                create_text_chat(
+                    "Sorry, I couldn't find a valid Solana wallet address in your query."
+                ),
+            )
+            return
+        
+        # Get the balance for this address
+        balance = await get_balance_from_address(address)
+        
+        # Create a nicely formatted response
+        response_text = f"Wallet Balance for `{address}`:\n{balance}\n\n[View on Solana Explorer](https://explorer.solana.com/address/{address})"
+        
+        # Send the response back to the user
+        await ctx.send(session_sender, create_text_chat(response_text))
+        
+    except Exception as err:
+        ctx.logger.error(err)
+        await ctx.send(
+            session_sender,
+            create_text_chat(
+                "Sorry, I couldn't check the wallet balance. Please try again later."
+            ),
+        )
+        return
+
+
+
+
+
 
 proto = QuotaProtocol(
     storage_reference=agent.storage,
     name="Solana-Wallet-Protocol",
     version="0.1.0",
-    default_rate_limit=RateLimit(window_size_minutes=60, max_requests=120),
+    default_rate_limit=RateLimit(window_size_minutes=60, max_requests=300),
 )
-#receive response from Solana RPC request as Solana Response
-@proto.on_message(SolanaRequest, replies={SolanaResponse, ErrorMessage})
+
+@proto.on_message(
+    SolanaRequest, replies={SolanaResponse, ErrorMessage}
+)
 async def handle_request(ctx: Context, sender: str, msg: SolanaRequest):
     ctx.logger.info(f"Received wallet balance request for address: {msg.address}")
     try:
@@ -259,11 +263,6 @@ async def handle_request(ctx: Context, sender: str, msg: SolanaRequest):
 
 agent.include(proto, publish_manifest=True)
 
-
-
-
-#HEALTH CHECK!
-
 ### Health check related code
 def agent_is_healthy() -> bool:
     """
@@ -272,7 +271,6 @@ def agent_is_healthy() -> bool:
     """
     try:
         import asyncio
-        #await asyncio.sleep(10)  # Wait 10 seconds
         asyncio.run(get_balance_from_address("AtTjQKXo1CYTa2MuxPARtr382ZyhPU5YX4wMMpvaa1oy"))
         return True
     except Exception:
@@ -303,10 +301,6 @@ async def handle_health_check(ctx: Context, sender: str, msg: HealthCheck):
         ctx.logger.error(err)
     finally:
         await ctx.send(sender, AgentHealth(agent_name="solana_wallet_agent", status=status))
-
-
-
-
 
 agent.include(health_protocol, publish_manifest=True)
 agent.include(chat_proto, publish_manifest=True)
