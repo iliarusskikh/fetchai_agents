@@ -16,6 +16,8 @@ agent = Agent()
 
 
 
+
+
 # Import the necessary components of the chat protocol
 from uagents_core.contrib.protocols.chat import (
     ChatAcknowledgement,
@@ -198,7 +200,7 @@ async def handle_structured_output_response(
         await ctx.send(
             session_sender,
             create_text_chat(
-                "Sorry, I couldn't process your request. Please include a valid Solana wallet address."
+                "Sorry, I couldn't process your request. Please include a valid Solana wallet address and/or try your query again."
             ),
         )
         return
