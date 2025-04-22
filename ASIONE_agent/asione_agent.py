@@ -144,28 +144,49 @@ async def handle_request(ctx: Context, sender: str, msg: ContextPrompt):
     await ctx.send(sender, Response(text=f"{response}"))
 
 
-
 @struct_proto.on_message(StructuredOutputPrompt, replies={StructuredOutputResponse, ErrorMessage})
 async def handle_structured_request(ctx: Context, sender: str, msg: StructuredOutputPrompt):
-    ctx.logger.info(f"Received message: {msg.prompt}")
+    max_retries = 5
+    retry_count = 0
     
-    prompt = f''' prompt : {msg.prompt}.response_schema : {msg.output_schema}; output: dict[str, Any]. if response_schema is not None: response_format = "type": "json_schema","json_schema":  "name": response_schema["title"], "strict": False, "schema": response_schema. ;     Follow the response schema to format the prompt and provide strict output to match the schema. The output from ASI1 agent should start with bracket and end with bracket. Do not include "json" heading in the output, only brackets and json-formated text! Nothing outside brackets. If some schema fileds cannot be filled due to missing data, add <UNKNOWN> to it.'''
-    
-    # Interpret the AI response and print SELL or HOLD decision
-    #if "SELL" in response:
-    #    print("SELL")
-    #else:
-    #    print("HOLD")
-    
-    response = query_llm(prompt)
-    ctx.logger.info(f"Received response: {response}")
+    while retry_count < max_retries:
+        try:
+            ctx.logger.info(f"Attempt {retry_count + 1}/{max_retries} - Received message: {msg.prompt}")
+            
+            # First LLM call to generate JSON response
+            prompt = f'''prompt: {msg.prompt}. response_schema: {msg.output_schema}. Based on this information produce an output in json format: dict[str, Any]. Follow the response schema to format the prompt and provide strict output to match the schema. The output from ASI1 agent should start with bracket and end with bracket. Do not include the word "json" in the output, only brackets and json-formated output text! Nothing outside brackets. If some schema fields cannot be filled due to missing data, add <UNKNOWN> to it.'''
+            
+            response = query_llm(prompt)
+            ctx.logger.info(f"Received response: {response}")
+            
+            # Second LLM call to validate and format JSON
+            prompt = f'''You should check that this response output starts with left curly brace, contains json structure format and ends with right curly brace. Remove any square brackets from response. Ensure curly all curly braces matching. Make sure that property names enclosed in double quotes. There are no characters outside brackets, only json formatted text within curly braces. Once checked you should either output response or modified response. nothing else. You must remove the word "json" if you find it in the response. The output must be json-format structure without any other comments, as if you only return datatype. Again, no additional comments! This is the output to apply of those rules to:"{response}"'''
+            response = query_llm(prompt)
+            ctx.logger.info(f"Formatted response: {response}")
+            
+            # Attempt to parse and send response
+            output = json.loads(response)
+            await ctx.send(sender, StructuredOutputResponse(output=output))
+            return  # Success: exit function
+            
+        except json.JSONDecodeError as e:
+            retry_count += 1
+            ctx.logger.error(f"JSONDecodeError on attempt {retry_count}/{max_retries}: {e}, Response: {response}")
+            if retry_count == max_retries:
+                ctx.logger.error("Max retries reached. Sending error message.")
+                await ctx.send(sender, ErrorMessage(error="Invalid JSON response after retries"))
+                return
+            ctx.logger.info("Retrying from the beginning...")
+            
+        except Exception as e:
+            retry_count += 1
+            ctx.logger.error(f"Error on attempt {retry_count}/{max_retries}: {e}")
+            if retry_count == max_retries:
+                ctx.logger.error("Max retries reached. Sending error message.")
+                await ctx.send(sender, ErrorMessage(error=f"Failed to process request: {str(e)}"))
+                return
+            ctx.logger.info("Retrying from the beginning...")
 
-    prompt = f'''You should check that this response output starts with left curly brace, contains json structure format and ends with right curly brace. Remove any square brackets from response. Make sure that property names enclosed in double quotes. There are no characters outside brackets, only json formatted text within curly braces. Here is the response:{response}. Once checked you should either output response or modified response. nothing else. You must remove the word "json" if you find it in the response.'''
-    response = query_llm(prompt)
-    ctx.logger.info(f"Formatted response: {response}")
-    #response = get_completion(context="", prompt=msg.prompt, response_schema=msg.output_schema)
-    await ctx.send(sender, StructuredOutputResponse(output=json.loads(response)))
- 
  
 agent.include(proto, publish_manifest=True)
 agent.include(struct_proto, publish_manifest=True)
