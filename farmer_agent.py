@@ -71,16 +71,14 @@ class StructuredOutputResponse(Model):
     output: dict[str, Any]
 
 
-class TopupRequest(Model):
-    amount: float
-
-class TopupResponse(Model):
-    status: str
+class FarmerRequest(Model):
+    response : str = Field(
+        description="ASI1 response to user query to maintain the conversation",
+    )
  
  
 farmer = Agent(
     name="Farmer agent faucet collector",
-    seed="kjpopoFJpwjofemwffreSTRgkgjkkjkjINGS",
 )
 
 
@@ -157,13 +155,14 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
 
             response_text = f"Sorry bro I am busy farming.. My total stake is {TOTALSTAKEDCOINS} FET! Back to work now.."
             session_sender = ctx.storage.get(str(ctx.session))
-            await ctx.send(session_sender, create_text_chat(response_text))
-            #await ctx.send(
-            #    AI_AGENT_ADDRESS,
-            #    StructuredOutputPrompt(
-            #        prompt=item.text, output_schema=BlockchainRequest.schema()
-            #    ),
-            #)
+            #await ctx.send(session_sender, create_text_chat(response_text))
+            asiprompt = f"You are the fetch ai farmer who farms FET and stakes it onto blockchain. You already have {TOTALSTAKEDCOINS}, and super proud of it. You are an expert in staking (which is farming), and knows everything about blockchain and fetch AI. Now, answer the user query - {item.text}"
+            await ctx.send(
+                AI_AGENT_ADDRESS,
+                StructuredOutputPrompt(
+                    prompt=asiprompt, output_schema=FarmerRequest.schema()
+                ),
+            )
         else:
             ctx.logger.info(f"Got unexpected content from {sender}")
 
@@ -197,18 +196,17 @@ async def handle_structured_output_response(
 
     try:
         # Parse the structured output to get the address
-       blockchain_request = BlockchainRequest.parse_obj(msg.output)
-       block = blockchain_request.blockchain
+       farmer_request = FarmerRequest.parse_obj(msg.output)
+       inforesponse = farmer_request.response
         
-       if not block:
-           await ctx.send(session_sender,create_text_chat("Sorry, I couldn't find a valid blockchain name in your query."),)
+       if not inforesponse:
+           await ctx.send(session_sender,create_text_chat("Sorry, I couldn't find a valid response for your query."),)
            return
         
-       ctx.logger.info(f"Received blockchain {block}")
+       ctx.logger.info(f"Received blockchain {inforesponse}")
 
-       response_text= str(get_crypto_info(str(block)))
-       #response_text=block
-        # Send response message
+       response_text= str(inforesponse)
+       # Send response message
 
        await ctx.send(session_sender, create_text_chat(response_text))
        #response = ChatMessage(timestamp=datetime.utcnow(),msg_id=uuid4(),content=[TextContent(type="text", text=coinres)])
