@@ -7,11 +7,11 @@ import os
 import json
  
 load_dotenv()
-provider_url = os.getenv("WEB3_PROVIDER_URL")
+provider_url = os.getenv("WEB3_PROVIDER_URL")#https://sepolia.infura.io/v3/{your-api-key}
 sender_address = os.getenv("SENDER_ADDRESS")
 receiver_address = os.getenv("RECEIVER_ADDRESS")
 sender_private_key = os.getenv("SENDER_PRIVATE_KEY")
-usdc_contract_address = os.getenv("USDC_CONTRACT_ADDRESS")
+usdc_contract_address = os.getenv("USDC_CONTRACT_ADDRESS") #0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
 amount = os.getenv("AMOUNT")
  
  
