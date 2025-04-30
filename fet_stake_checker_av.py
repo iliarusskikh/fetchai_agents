@@ -16,6 +16,7 @@ from cosmpy.crypto.address import Address
 from uagents.config import TESTNET_REGISTRATION_FEE
 from uagents.network import get_faucet, get_ledger
 from uagents.utils import get_logger
+from uagents.experimental.quota import QuotaProtocol, RateLimit
 
 import argparse
 import time
@@ -39,11 +40,15 @@ from uagents_core.contrib.protocols.chat import (
     chat_protocol_spec,
 )
 
+
+farmer = Agent(
+    name="Farmer agent faucet collector",
+)
+
+
 TOTALSTAKEDCOINS = ""
 # AI Agent Address for structured output processing
 AI_AGENT_ADDRESS = 'agent1q2gmk0r2vwk6lcr0pvxp8glvtrdzdej890cuxgegrrg86ue9cahk5nfaf3c'
-#ai agent agent1q0h70caed8ax769shpemapzkyk65uscw4xwk6dc4t3emvp5jdcvqs9xs32y
-#test-agent://agent1q2gmk0r2vwk6lcr0pvxp8glvtrdzdej890cuxgegrrg86ue9cahk5nfaf3c
 if not AI_AGENT_ADDRESS:
     raise ValueError("AI_AGENT_ADDRESS not set")
 
@@ -61,6 +66,12 @@ chat_proto = Protocol(spec=chat_protocol_spec)
 struct_output_client_proto = Protocol(
     name="StructuredOutputClientProtocol", version="0.1.0"
 )
+proto = QuotaProtocol(
+    storage_reference=farmer.storage,
+    name="FetchFund-FarmerWill-Protocol",
+    version="0.1.0",
+    default_rate_limit=RateLimit(window_size_minutes=60, max_requests=15),
+)
 
 
 class StructuredOutputPrompt(Model):
@@ -76,10 +87,16 @@ class FarmerRequest(Model):
         description="ASI1 response to user query to maintain the conversation",
     )
  
- 
-farmer = Agent(
-    name="Farmer agent faucet collector",
-)
+class StakeRequest(Model):
+    wallet : str = Field(
+        description="user's FET wallet address",
+    )
+
+class StakeResponse(Model):
+    amount : str = Field(
+        description="user's total staked FET amount",
+    )
+
 
 
 fund_agent_if_low(farmer.wallet.address())
@@ -142,25 +159,26 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
             continue
         elif isinstance(item, TextContent):
             ctx.logger.info(f"Got a message from {sender}: {item.text}")
-            ctx.storage.set(str(ctx.session), sender)
+            #ctx.storage.set(str(ctx.session), sender)
 
-            ledger: LedgerClient = get_ledger()
-            ledger_client = LedgerClient(NetworkConfig.fetchai_stable_testnet())
+            #ledger: LedgerClient = get_ledger()
+            #ledger_client = LedgerClient(NetworkConfig.fetchai_stable_testnet())
 
-            summary = ledger_client.query_staking_summary(farmer.wallet.address())
-            totalstaked = summary.total_staked/1000000000000000000
-            ctx.logger.info(f"Total stake: {totalstaked}")
-            global TOTALSTAKEDCOINS
-            TOTALSTAKEDCOINS = str(totalstaked)
+            #summary = ledger.query_staking_summary(farmer.wallet.address())
+            #totalstaked = summary.total_staked/1000000000000000000
+            #ctx.logger.info(f"Total stake: {totalstaked}")
+            #global TOTALSTAKEDCOINS
+            #TOTALSTAKEDCOINS = str(totalstaked)
 
-            response_text = f"Sorry bro I am busy farming.. My total stake is {TOTALSTAKEDCOINS} FET! Back to work now.."
-            session_sender = ctx.storage.get(str(ctx.session))
+            #response_text = f"Sorry bro I am busy farming.. My total stake is {TOTALSTAKEDCOINS} FET! Back to work now.."
+            #session_sender = ctx.storage.get(str(ctx.session))
             #await ctx.send(session_sender, create_text_chat(response_text))
-            asiprompt = f"You are the fetch ai farmer who farms FET and stakes it onto blockchain. You already have {TOTALSTAKEDCOINS}, and super proud of it. You are an expert in staking (which is farming), and knows everything about blockchain and fetch AI. Now, answer the user query - {item.text}"
+            #asiprompt = f"You are the fetch ai farmer who farms FET and stakes it onto blockchain. You already have {TOTALSTAKEDCOINS}, and super proud of it. You are an expert in staking (which is farming), and knows everything about blockchain and fetch AI. Now, answer the user query - {item.text}"
+            asiprompt = f"Match the output schema given user input: {item.text}."
             await ctx.send(
                 AI_AGENT_ADDRESS,
                 StructuredOutputPrompt(
-                    prompt=asiprompt, output_schema=FarmerRequest.schema()
+                    prompt=asiprompt, output_schema=StakeRequest.schema()
                 ),
             )
         else:
@@ -189,30 +207,38 @@ async def handle_structured_output_response(
         await ctx.send(
             session_sender,
             create_text_chat(
-                "Sorry, I couldn't process your request. Please include a valid blockchain name."
+                "Sorry, I couldn't process your request. Please include a valid wallet address to check your stake in FET."
             ),
         )
         return
 
     try:
         # Parse the structured output to get the address
-       farmer_request = FarmerRequest.parse_obj(msg.output)
-       inforesponse = farmer_request.response
-        
-       if not inforesponse:
-           await ctx.send(session_sender,create_text_chat("Sorry, I couldn't find a valid response for your query."),)
-           return
-        
-       ctx.logger.info(f"Received blockchain {inforesponse}")
+        farmer_request = StakeRequest.parse_obj(msg.output)
+        inforesponse = farmer_request.wallet
 
-       response_text= str(inforesponse)
-       # Send response message
+        if not inforesponse:
+            await ctx.send(session_sender,create_text_chat("Sorry, I couldn't find a valid wallet address in your query. Please, provide your wallet address to find your about your stake in FET."),)
+            return
 
-       await ctx.send(session_sender, create_text_chat(response_text))
-       #response = ChatMessage(timestamp=datetime.utcnow(),msg_id=uuid4(),content=[TextContent(type="text", text=coinres)])
-       #await ctx.send(session_sender, create_text_chat(response))
+        ctx.logger.info(f"Received wallet {inforesponse}")
 
-        
+
+        ledger: LedgerClient = get_ledger("mainnet")
+
+        summary = ledger.query_staking_summary(inforesponse)
+        totalstaked = round((summary.total_staked/1000000000000000000),2)
+        ctx.logger.info(f"Total stake: {totalstaked}")
+
+
+        response_text= f"{totalstaked} FET"
+        # Send response message
+
+        await ctx.send(session_sender, create_text_chat(response_text))
+        #response = ChatMessage(timestamp=datetime.utcnow(),msg_id=uuid4(),content=[TextContent(type="text", text=coinres)])
+        #await ctx.send(session_sender, create_text_chat(response))
+
+
         # Send the response back to the user
        # await ctx.send(session_sender, create_text_chat(response_text))
         
@@ -221,12 +247,33 @@ async def handle_structured_output_response(
         await ctx.send(
             session_sender,
             create_text_chat(
-                "Sorry, I couldn't check the price for a native token of the supported blockchain provided. Please try again later."
+                "Sorry, I couldn't check your wallet. Please try again later."
             ),
         )
         return
  
 
+
+@proto.on_message(model=StakeRequest)
+async def handle_acknowledgement(ctx: Context, sender: str, msg: StakeRequest):
+    ctx.logger.info(f"Received wallet {msg.wallet}")
+    
+    summary=0
+    
+    ledger: LedgerClient = get_ledger("mainnet")
+    try:
+        summary = ledger.query_staking_summary(msg.wallet)
+    except Exception as err:
+        ctx.logger.error(err)
+
+    totalstaked = round((summary.total_staked/1000000000000000000),2)
+    ctx.logger.info(f"Total stake: {totalstaked}")
+
+
+    response_text= f"{totalstaked} FET"
+    # Send response message
+
+    await ctx.send(sender, StakeResponse(amount=response_text))
 
 
 
@@ -235,6 +282,7 @@ async def handle_structured_output_response(
 # This allows the agent to send/receive messages and handle acknowledgements using the chat protocol
 farmer.include(chat_proto, publish_manifest=True)
 farmer.include(struct_output_client_proto, publish_manifest=True)
+farmer.include(proto, publish_manifest=True)
 
 
 if __name__ == "__main__":
