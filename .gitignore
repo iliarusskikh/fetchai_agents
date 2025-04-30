@@ -1,0 +1,4 @@
+#NOT INCLUDE FILES
+**.env
+**.DS_Store
+agentverse/.env.save
