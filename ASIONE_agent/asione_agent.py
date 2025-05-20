@@ -2,7 +2,6 @@ import json
 import os
 import logging
 import requests
-#from enum im copyport Enum
 from enum import Enum
 
 from typing import Any
@@ -75,14 +74,14 @@ proto = QuotaProtocol(
     storage_reference=agent.storage,
     name="LLM-Context-Response",
     version="0.1.0",
-    default_rate_limit=RateLimit(window_size_minutes=60, max_requests=120),
+    default_rate_limit=RateLimit(window_size_minutes=60, max_requests=25),
 )
  
 struct_proto = QuotaProtocol(
     storage_reference=agent.storage,
     name="LLM-Structured-Response",
     version="0.1.0",
-    default_rate_limit=RateLimit(window_size_minutes=60, max_requests=120),
+    default_rate_limit=RateLimit(window_size_minutes=60, max_requests=25),
 )
 
 
@@ -146,7 +145,7 @@ async def handle_request(ctx: Context, sender: str, msg: ContextPrompt):
 
 @struct_proto.on_message(StructuredOutputPrompt, replies={StructuredOutputResponse, ErrorMessage})
 async def handle_structured_request(ctx: Context, sender: str, msg: StructuredOutputPrompt):
-    max_retries = 5
+    max_retries = 3
     retry_count = 0
     
     while retry_count < max_retries:
