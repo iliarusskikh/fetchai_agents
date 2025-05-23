@@ -1,3 +1,4 @@
+#external_loop_attach
 import asyncio
 import contextlib
  
@@ -7,25 +8,27 @@ loop = asyncio.get_event_loop()
  
 agent = Agent(
     name="looper",
-    seed="veefefefefefeef",
+    seed="<YOUR_SEED>",
+    port=8001,
+    endpoint=["http://127.0.0.1:8001/submit"],
 )
  
-bureau = Bureau(
-    agents=[agent],
-)
- 
+
 @agent.on_event("startup")
 async def startup(ctx: Context):
     ctx.logger.info(">>> Looper is starting up.")
+ 
  
 @agent.on_event("shutdown")
 async def shutdown(ctx: Context):
     ctx.logger.info(">>> Looper is shutting down.")
  
+ 
 async def coro():
     while True:
-        print("Doing hard work...")
+        print("doing hard work...")
         await asyncio.sleep(1)
+ 
  
 if __name__ == "__main__":
     print("Attaching the agent or bureau to the external loop...")
