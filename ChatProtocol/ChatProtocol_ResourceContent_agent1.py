@@ -30,71 +30,6 @@ agent2 = Agent(
 # Initialize the chat protocol
 chat_proto = Protocol(spec=chat_protocol_spec)
 
-
-# Define CoinResponse model (unchanged)
-class CoinResponse(Model):
-    name: str
-    symbol: str
-    current_price: float
-    market_cap: float
-    total_volume: float
-    price_change_24h: float
-
-def get_crypto_info(blockchain: str) -> CoinResponse:
-    match blockchain:
-        case "ethereum" | "Ethereum" | "Ethereum network":
-            coin_id = "ethereum"
-        case "base" | "Base" | "Base network":
-            coin_id = "ethereum"
-        case "solana" | "Solana":
-            coin_id = "solana"
-        case "bsc" | "Bsc" | "Bsc network":
-            coin_id = "binancecoin"
-        case "polygon" | "Polygon" | "Matic-network" | "Matic":
-            coin_id = "matic-network"
-        case "avalanche" | "Avalanche":
-            coin_id = "avalanche-2"
-        case "arbitrum" | "Arbitrum" | "Arbitrum network":
-            coin_id = "arbitrum"
-        case "optimism" | "Optimism" | "Optimism network":
-            coin_id = "optimism"
-        case "sui" | "Sui":
-            coin_id = "sui"
-        case "ronin" | "Ronin":
-            coin_id = "ronin"
-        case "bitcoin" | "Bitcoin":
-            coin_id = "bitcoin"
-        case _:
-            raise ValueError(f"Unsupported blockchain: {blockchain}")
-
-    """Fetch cryptocurrency information from CoinGecko API"""
-    url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"
-    
-    try:
-        response = requests.get(url)
-        logging.info(f"🚀 URL for {coin_id} received...")
-        response.raise_for_status()
-
-        data = response.json()
-        return CoinResponse(
-            name=data['name'],
-            symbol=data['symbol'].upper(),
-            current_price=data['market_data']['current_price']['usd'],
-            market_cap=data['market_data']['market_cap']['usd'],
-            total_volume=data['market_data']['total_volume']['usd'],
-            price_change_24h=data['market_data']['price_change_percentage_24h']
-        )
-    except requests.exceptions.RequestException as e:
-        logging.error(f"⚠️ API Request Failed: {e}")
-        return CoinResponse(
-            name="Unknown",
-            symbol="N/A",
-            current_price=0.0,
-            market_cap=0.0,
-            total_volume=0.0,
-            price_change_24h=0.0
-        )
-
 # Startup Handler - Print agent details
 @agent2.on_event("startup")
 async def startup_handler(ctx: Context):
@@ -115,12 +50,7 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
             )
             await ctx.send(sender, ack)
 
-            # Fetch CoinGecko data
-            try:
-                coin_res = get_crypto_info(item.text)
-                response_text = str(coin_res)
-            except ValueError as e:
-                response_text = str(e)
+            response_text = "Hello its agent 1"
 
             # Send response
             response = ChatMessage(
