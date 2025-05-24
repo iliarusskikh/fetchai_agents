@@ -65,31 +65,24 @@ async def startup_handler(ctx: Context):
 # Message Handler - Process received messages and send acknowledgements
 @chat_proto.on_message(ChatMessage)
 async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
+    print(f"Got a message from {sender}: {msg}")
     ctx.storage.set(str(ctx.session), sender)
     session_sender = ctx.storage.get(str(ctx.session))
+    await ctx.send(
+        sender,
+        ChatAcknowledgement(timestamp=datetime.utcnow(), acknowledged_msg_id=msg.msg_id),
+    )
+    
     for item in msg.content:
         if isinstance(item, EndSessionContent):
             print(f"Got an end session message from {sender}")
-            # Send acknowledgment
-            ack = ChatAcknowledgement(
-                timestamp=datetime.utcnow(),
-                acknowledged_msg_id=msg.msg_id
-            )
-            await ctx.send(sender, ack)
         if isinstance(item, StartSessionContent):
             print(f"Got a start session message from {sender}")
             continue
         if isinstance(item, TextContent):
             # Log received message
             print(f"Received message from {sender}: {item.text}")
-            
-            # Send acknowledgment
-            ack = ChatAcknowledgement(
-                timestamp=datetime.utcnow(),
-                acknowledged_msg_id=msg.msg_id
-            )
-            await ctx.send(sender, ack)
-            
+                        
             #await ctx.send(session_sender, create_text_chat(str("Hello from Agent1")))
 
 
