@@ -54,19 +54,13 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
     for item in msg.content:
         if isinstance(item, EndSessionContent):
             print(f"Got an end session message from {sender}")
-            ack = ChatAcknowledgement(
-                timestamp=datetime.utcnow(),
-                acknowledged_msg_id=msg.msg_id
-            )
-            await ctx.send(sender, ack)
-            
+
         if isinstance(item, StartSessionContent):
             print(f"Got a start session message from {sender}")
             continue
             
         elif isinstance(item, TextContent):
             ctx.logger.info(f"Got a message from {sender}: {item.text}")
-            ctx.storage.set(str(ctx.session), sender)
             await ctx.send(session_sender, create_text_chat(str("Hello from Agent2")))
             
             response = ChatMessage(
