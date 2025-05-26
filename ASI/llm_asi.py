@@ -22,8 +22,13 @@ def query_llm(query):
     data = {
         "messages": [
             {
-                "role": "user",
-                "content": query}
+                "role": "system",
+                "content": "You are a helpful assistant specialized in Web3 technologies."
+            },
+            {
+                "role": "user", #The role of the message author. Must be one of "system", "user", or "assistant".
+                "content": query
+            }
         ],  # User input for the chat model
         "conversationId": None,  # No conversation history tracking
         "model": "asi1-extended",  # Specifies the model version to use

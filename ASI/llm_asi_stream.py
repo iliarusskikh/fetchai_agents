@@ -71,6 +71,7 @@ try:
                     print(f"\nKey error: {e} on data: {data}")
                     continue
         else:
+            #pass
             print("Empty line received")
     
     response.close()  # Ensure the connection is closed
