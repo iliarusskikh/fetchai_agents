@@ -29,6 +29,7 @@ def query_llm(query):
                 "role": "user", #The role of the message author. Must be one of "system", "user", or "assistant".
                 "content": query
             }
+
         ],  # User input for the chat model
         "conversationId": None,  # No conversation history tracking
         "model": "asi1-extended",  # Specifies the model version to use
@@ -41,7 +42,7 @@ def query_llm(query):
         # Send a POST request to the LLM API with the input query
         with requests.post(url, headers=headers, json=data) as response:
             output = response.json()  # Parse the JSON response
-
+            #print(f"{output}")
             # Extract and return the generated message content
             print(f"Prompt tokens:{output['usage']['prompt_tokens']} \n")
             print(f"Completion tokens:{output['usage']['completion_tokens']} \n")
