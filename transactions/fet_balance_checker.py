@@ -177,11 +177,20 @@ async def handle_structured_output_response(
         ctx.logger.info(f"Received wallet {inforesponse}")
 
         ledger_client = LedgerClient(NetworkConfig.fetchai_mainnet())
-        balances = ledger_client.query_bank_balance(inforesponse, denom='afet')
-        totalbalance = (int(balances)/1000000000000000000)
-        ctx.logger.info(f"Total balance: {balances}")
-
-        response_text= f"{totalbalance} FET"
+        try:
+            balances = ledger_client.query_bank_balance(inforesponse, denom='afet')
+            totalbalance = (int(balances)/1000000000000000000)
+            ctx.logger.info(f"Total balance: {balances}")
+            response_text= f"{totalbalance} FET"
+        except Exception as err:
+            ctx.logger.error(err)
+            await ctx.send(
+                session_sender,
+                create_text_chat(
+                    "Sorry, I couldn't check your FET wallet on native blockchain. Please provide a valid wallet address."
+                ),
+            )
+            return
         # Send response message
 
         await ctx.send(session_sender, create_text_chat(response_text))
@@ -223,6 +232,3 @@ farmer.include(proto, publish_manifest=True)
 
 if __name__ == "__main__":
     farmer.run()
-
-#money making farm :D just enter your agents and start printing money!
-
