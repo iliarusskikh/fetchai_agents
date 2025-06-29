@@ -8,6 +8,11 @@ mcp = FastMCP("weather")
 NWS_API_BASE = "https://api.weather.gov"
 USER_AGENT = "weather-app/1.0"
 
+
+
+
+
+
 async def make_nws_request(url: str) -> dict[str, Any] | None:
     headers = {
         "User-Agent": USER_AGENT,
@@ -25,6 +30,12 @@ def format_alert(feature: dict) -> str:
     props = feature["properties"]
     return f""" Event: {props.get('event', 'Unknown')} Area: {props.get('areaDesc', 'Unknown')} Severity: {props.get('severity', 'Unknown')} Description: {props.get('description', 'No description available')} Instructions: {props.get('instruction', 'No specific instructions provided')}"""
 
+
+
+
+
+
+
 @mcp.tool()
 async def get_alerts(state: str) -> str:
     """Get weather alerts for a US state."""
@@ -39,6 +50,8 @@ async def get_alerts(state: str) -> str:
 
     alerts = [format_alert(feature) for feature in data["features"]]
     return "\n---\n".join(alerts)
+
+
 
 @mcp.tool()
 async def get_forecast(latitude: float, longitude: float) -> str:
@@ -63,6 +76,8 @@ async def get_forecast(latitude: float, longitude: float) -> str:
         forecasts.append(forecast)
 
     return "\n---\n".join(forecasts)
+
+
 
 if __name__ == "__main__":
     # Initialize and run the server
