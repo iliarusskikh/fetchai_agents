@@ -1,6 +1,8 @@
+#agent1qthmuhfu5xlu4s8uwlq7z2ghxhpdqpj2r8smaushxu0qr3k3zcwuxu87t0t
 from datetime import datetime
 from uuid import uuid4
 from uagents import Agent, Protocol, Context, Model
+from uagents.experimental.quota import QuotaProtocol, RateLimit
 
 import os
 import logging
@@ -24,8 +26,6 @@ agent2 = Agent()
 
 # AI Agent Address for structured output processing
 AI_AGENT_ADDRESS = 'agent1q2gmk0r2vwk6lcr0pvxp8glvtrdzdej890cuxgegrrg86ue9cahk5nfaf3c'
-#ai agent agent1q0h70caed8ax769shpemapzkyk65uscw4xwk6dc4t3emvp5jdcvqs9xs32y
-#test-agent://agent1q2gmk0r2vwk6lcr0pvxp8glvtrdzdej890cuxgegrrg86ue9cahk5nfaf3c
 if not AI_AGENT_ADDRESS:
     raise ValueError("AI_AGENT_ADDRESS not set")
 
@@ -44,7 +44,15 @@ struct_output_client_proto = Protocol(
     name="StructuredOutputClientProtocol", version="0.1.0"
 )
 
-class CoinResponse(Model):
+proto = QuotaProtocol(
+    storage_reference=agent2.storage,
+    name="FethcFund-CoinInfo-Protocol",
+    version="0.1.0",
+    default_rate_limit=RateLimit(window_size_minutes=60, max_requests=15),
+)
+
+
+class CoinInfoResponse(Model):
     name: str
     symbol: str
     current_price: float
@@ -53,9 +61,9 @@ class CoinResponse(Model):
     price_change_24h: float
 
 
-class BlockchainRequest(Model):
+class CoinInfoRequest(Model):
     blockchain: str = Field(
-        description="Blockchain name to check the price of its native coin",
+        description="Blockchain or crypto network name to check the price of its native coin",
     )
 
 class StructuredOutputPrompt(Model):
@@ -64,33 +72,34 @@ class StructuredOutputPrompt(Model):
 
 class StructuredOutputResponse(Model):
     output: dict[str, Any]
-
-def get_crypto_info(blockchain: str) -> CoinResponse:
-    match blockchain:
-        case "ethereum"|"Ethereum"|"Ethereum network":
+    
+def get_crypto_info(cryptocurrency: str) -> CoinInfoResponse:
+    coin_id =""
+    match cryptocurrency.lower():
+        case "ethereum"|"eth"|"ethereum network"|"ethereum blockchain":
             coin_id = "ethereum"
-        case "base"| "Base" | "Base network":
+        case "base"| "base network"|"base blockchain":
             coin_id = "ethereum"
-        case "solana"|"Solana":
+        case "solana"|"sol"|"solana blockchain"|"solana network":
             coin_id = "solana"
-        case "bsc"|"Bsc"| "Bsc network":
+        case "bsc"|"Bsc"| "bsc network"|"bnb"|"bsc blockchain":
             coin_id = "binancecoin"
-        case "polygon"|"Polygon"|"Matic-network"|"Matic":
+        case "polygon"|"matic-network"|"matic"|"pol"|"polygon blockchain":
             coin_id = "matic-network"
-        case "avalanche"|"Avalanche":
+        case "avalanche"|"avalanche blockchain":
             coin_id = "avalanche-2"
-        case "arbitrum" | "Arbitrum"|"Arbitrum network":
+        case "arbitrum"|"arbitrum network"|"arb"|"arbitrum blockchain":
             coin_id = "arbitrum"
-        case "optimism" |"Optimism"|"Optimism network":
+        case "optimism"|"optimism network"|"op"|"optimism blockchain":
             coin_id = "optimism"
-        case "sui"|"Sui":
+        case "sui"|"sui blockchain":
             coin_id = "sui"
-        case "ronin"|"Ronin":
+        case "ronin"|"ronin blockchain":
             coin_id = "ronin"
-        case "bitcoin"|"Bitcoin":
+        case "bitcoin"|"btc"|"bitcoin blockchain":
             coin_id = "bitcoin"
         case _:
-            return ValueError(f"Unsupported blockchain: {blockchain}. Input the name of the supported blockchain.")  # Handle unexpected inputs
+            return ValueError(f"Unsupported cryptocurrency: {cryptocurrency}. Please, input the name of the supported crypto.")  # Handle unexpected inputs
             #raise
 
     """Fetch cryptocurrency information from CoinGecko API"""
@@ -99,12 +108,12 @@ def get_crypto_info(blockchain: str) -> CoinResponse:
     
     try:
         response = requests.get(url)
-        logging.info("🚀 URL for {coint_id} received...")
+        agent._logger.info(f"🚀 URL for {coin_id} received...")
         response.raise_for_status()  # Raises an error for non-200 responses
 
         data = response.json()
         
-        return CoinResponse(
+        return CoinInfoResponse(
             name=data['name'],
             symbol=data['symbol'].upper(),
             current_price=data['market_data']['current_price']['usd'],
@@ -114,8 +123,8 @@ def get_crypto_info(blockchain: str) -> CoinResponse:
         )
     
     except requests.exceptions.RequestException as e:
-        logging.error(f"⚠️ API Request Failed: {e}")
-        return CoinResponse(
+        agent._logger.error(f"⚠️ API Request Failed: {e}")
+        return CoinInfoResponse(
             name="Unknown",
             symbol="N/A",
             current_price=0.0,
@@ -123,6 +132,8 @@ def get_crypto_info(blockchain: str) -> CoinResponse:
             total_volume=0.0,
             price_change_24h=0.0
         )
+
+
 
 
 
@@ -154,7 +165,7 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
             await ctx.send(
                 AI_AGENT_ADDRESS,
                 StructuredOutputPrompt(
-                    prompt=item.text, output_schema=BlockchainRequest.schema()
+                    prompt=item.text, output_schema=CoinInfoRequest.schema()
                 ),
             )
         else:
@@ -185,34 +196,24 @@ async def handle_structured_output_response(
         await ctx.send(
             session_sender,
             create_text_chat(
-                "Sorry, I couldn't process your request. Please include a valid blockchain name."
+                "Sorry, I couldn't process your request. Please include a valid blockchain name. Supported blockchains: bitcoin, ethereum, bsc, base, optimism, solana, polygon, avalanche, arbitrum, sui, ronin. Thanks!"
             ),
         )
         return
 
     try:
         # Parse the structured output to get the address
-       blockchain_request = BlockchainRequest.parse_obj(msg.output)
+       blockchain_request = CoinInfoRequest.parse_obj(msg.output)
        block = blockchain_request.blockchain
         
        if not block:
            await ctx.send(session_sender,create_text_chat("Sorry, I couldn't find a valid blockchain name in your query."),)
            return
         
-       ctx.logger.info(f"Received blockchain {block}")
-
        response_text= str(get_crypto_info(str(block)))
-       #response_text=block
-        # Send response message
 
        await ctx.send(session_sender, create_text_chat(response_text))
-       #response = ChatMessage(timestamp=datetime.utcnow(),msg_id=uuid4(),content=[TextContent(type="text", text=coinres)])
-       #await ctx.send(session_sender, create_text_chat(response))
 
-        
-        # Send the response back to the user
-       # await ctx.send(session_sender, create_text_chat(response_text))
-        
     except Exception as err:
         ctx.logger.error(err)
         await ctx.send(
@@ -224,8 +225,36 @@ async def handle_structured_output_response(
         return
 
 
+#agents interactions
+async def process_response(ctx: Context, msg: CoinInfoRequest) -> CoinInfoResponse:
+    """Process the crypto request and return formatted response"""
+    agent2._logger.info(f"🔄 Fetching crypto data for: {msg.blockchain}")
+
+    crypto_data = get_crypto_info(msg.blockchain)
+    agent2._logger.info(f"📊 Crypto Info: {crypto_data}")
+    return crypto_data
 
 
+@proto.on_message(model=CoinInfoRequest)
+async def handle_message(ctx: Context, sender: str, msg: CoinInfoRequest):
+    """Handle incoming messages requesting crypto information"""
+    agent2._logger.info(f"📩 Received message from {sender}: {msg.blockchain}")
+    
+    response = await process_response(ctx, msg)
+    await ctx.send(sender, response)
+
+    return response
+
+
+
+# Include the protocol in the agent to enable the chat functionality
+# This allows the agent to send/receive messages and handle acknowledgements using the chat protocol
+agent2.include(chat_proto, publish_manifest=True)
+agent2.include(proto, publish_manifest=True)
+agent2.include(struct_output_client_proto, publish_manifest=True)
+
+if __name__ == '__main__':
+    agent2.run()
 
 
 
