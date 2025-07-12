@@ -2,3 +2,6 @@
 **.env
 **.DS_Store
 agentverse/.env.save
+**.pickle
+__pycache__
+**.json
