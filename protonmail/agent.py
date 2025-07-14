@@ -1,3 +1,4 @@
+#pip install protonmail-api-client
 #pip install "uagents-adapter[mcp]"
 from uagents_adapter import MCPServerAdapter
 from server import mcp
