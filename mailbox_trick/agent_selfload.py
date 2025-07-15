@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 from uagents import Agent, Context, Model
 import asyncio
 import json
+from functools import partial
+
 
 load_dotenv() # Load environment variables
 
@@ -33,6 +35,7 @@ agent = Agent(
     port=8004,
     seed="test_localhost_phrase_123456",
     endpoint=["http://127.0.0.1:8004/submit"],
+    #mailbox=True,
     )
 
 
@@ -40,28 +43,34 @@ agent = Agent(
 async def startup(ctx: Context):
     """Initialize agent with a startup message"""
     ctx.logger.info(f"✅ Agent started: {ctx.agent.address}")
-    await asyncio.sleep(10)
-    #set up mailboxes for other agents
-    await get_connected(ctx)
+    await run_in_thread(get_connected,ctx)
+
+    #await get_connected(ctx)
 
 
-#@agent.on_interval(10000)
-async def get_connected(ctx: Context):#ctx: Context
-    #agent._logger.info(f"")
-    access_token = await get_access_token(ctx)# Get access token
+
+async def run_in_thread(func, *args, **kwargs):
+    """
+    Run a synchronous function in a separate thread to avoid blocking the event loop.
+    Supports both positional and keyword arguments.
+    """
+    return await asyncio.to_thread(partial(func, *args, **kwargs))
+
+
+def get_connected(ctx: Context):#ctx: Context
+    access_token = get_access_token(ctx)# Get access token
     
     if access_token:
         ctx.logger.info(f"Registering mailbox..")
-        #await register_mailbox(ctx, agent._port, access_token) # Register mailbox
-        await register_mailbox(ctx, 8005, access_token) #CHANGE PORT
+        register_mailbox(ctx, agent._port, access_token) # Register mailbox
 
-        await set_metadata("agent1q059zv67mc4jfawhx0v4m9m4r2kyjnapg60gclpk0pktl0ku0yv050vtsft", "some_order_id", access_token) #CHANGE ADDRESS
+        set_metadata(ctx.agent.address, "some_order_id", access_token)
     else:
         ctx.logger.error("Failed to get access token, skipping mailbox registration and metadata")
 
 
 #Local Inspector -> on agent_inspector page, right click, inspect page -> network -> open GET request -> Cookies
-async def get_access_token(ctx: Context) -> str | None:
+def get_access_token(ctx: Context) -> str | None:
     """Retrieve access token from Agentverse API"""
     session_url = "https://agentverse.ai/api/session"
     headers = {"Cookie": MY_COOKIE}
@@ -84,7 +93,7 @@ async def get_access_token(ctx: Context) -> str | None:
         return None
 
 
-async def register_mailbox(ctx: Context, port: int, access_token: str) -> None:
+def register_mailbox(ctx: Context, port: int, access_token: str) -> None:
     """Register the agent's mailbox with Agentverse"""
     connect_url = f"http://127.0.0.1:{port}/connect"
     payload = {
@@ -106,7 +115,7 @@ async def register_mailbox(ctx: Context, port: int, access_token: str) -> None:
         
 
 
-async def set_metadata(address: str, order_id: str, access_token: str) -> None:
+def set_metadata(address: str, order_id: str, access_token: str) -> None:
     """Set metadata for the agent in Agentverse"""
     url = f"https://agentverse.ai/v1/agents/{address}"
     payload = {
